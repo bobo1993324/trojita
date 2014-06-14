@@ -60,6 +60,7 @@
 #include "Imap/Tasks/GenUrlAuthTask.h"
 #include "Imap/Tasks/UidSubmitTask.h"
 #include "Plugins/PluginManager.h"
+#include "UiUtils/Formatting.h"
 
 namespace
 {
@@ -155,7 +156,7 @@ ComposeWidget::ComposeWidget(MainWindow *mainWindow, QSettings *settings, MSA::M
     ui->buttonBox->addButton(m_markButton, QDialogButtonBox::ResetRole);
     m_markButton->hide();
 
-    ui->mailText->setFont(Gui::Util::systemMonospaceFont());
+    ui->mailText->setFont(UiUtils::Formatting::systemMonospaceFont());
 
     connect(ui->mailText, SIGNAL(urlsAdded(QList<QUrl>)), SLOT(slotAttachFiles(QList<QUrl>)));
     connect(ui->mailText, SIGNAL(sendRequest()), SLOT(send()));
@@ -639,7 +640,7 @@ void ComposeWidget::slotCheckAddress(QLineEdit *edit)
         edit->setPalette(QPalette());
     } else {
         QPalette p;
-        p.setColor(QPalette::Base, Gui::Util::tintColor(p.color(QPalette::Base), QColor(0xff, 0, 0, 0x20)));
+        p.setColor(QPalette::Base, UiUtils::Formatting::tintColor(p.color(QPalette::Base), QColor(0xff, 0, 0, 0x20)));
         edit->setPalette(p);
     }
 }

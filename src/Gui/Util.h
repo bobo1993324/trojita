@@ -44,10 +44,6 @@ void centerWidgetOnScreen(QWidget *widget, bool centerOnCursorScreen=true);
 
 QString pkgDataDir();
 
-QColor tintColor(const QColor &color, const QColor &tintColor);
-
-QFont systemMonospaceFont();
-
 int askForSomethingUnlessTold(const QString &title, const QString &message, const QString &settingsName,
                               QMessageBox::StandardButtons buttons, QWidget *parent, QSettings *settings);
 

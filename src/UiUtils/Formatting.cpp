@@ -25,6 +25,57 @@
 #include <QSslKey>
 #include <QStringList>
 #include <QTextDocument>
+#include <QFontInfo>
+#include <QFileInfo>
+#include <QPalette>
+#include <QColor>
+#include <QFile>
+#include <QApplication>
+#include <QDir>
+#include <QSettings>
+#include <QProcess>
+#include "Common/Paths.h"
+
+namespace {
+
+bool isRunningKde4()
+{
+    return qgetenv("KDE_SESSION_VERSION") == "4";
+}
+
+bool isRunningGnome()
+{
+    return qgetenv("DESKTOP_SESSION") == "gnome";
+}
+
+bool isRunningXfce()
+{
+    return qgetenv("DESKTOP_SESSION") == "xfce";
+}
+
+/** @short Return full path to the $KDEHOME
+
+Shamelessly stolen from Qt4's src/gui/kernel/qkde.cpp (it's a private class) and adopted to check $KDE_SESSION_VERSION
+instead of yet another private class.
+*/
+QString kdeHome()
+{
+    static QString kdeHomePath;
+    if (kdeHomePath.isEmpty()) {
+        kdeHomePath = QString::fromLocal8Bit(qgetenv("KDEHOME"));
+        if (kdeHomePath.isEmpty()) {
+            QDir homeDir(QDir::homePath());
+            QString kdeConfDir(QLatin1String("/.kde"));
+            if (qgetenv("KDE_SESSION_VERSION") == "4" && homeDir.exists(QLatin1String(".kde4"))) {
+                kdeConfDir = QLatin1String("/.kde4");
+            }
+            kdeHomePath = QDir::homePath() + kdeConfDir;
+        }
+    }
+    return kdeHomePath;
+}
+
+}
 
 namespace UiUtils {
 
@@ -205,5 +256,179 @@ QObject *Formatting::factory(QQmlEngine *engine, QJSEngine *scriptEngine)
     return f;
 }
 #endif
+
+QString Formatting::markupPlainText(QString plaintext, Composer::Util::FlowedFormat flowedFormat)
+{
+    static const QString defaultStyle = QString::fromUtf8(
+        "pre{word-wrap: break-word; white-space: pre-wrap;}"
+        // The following line, sadly, produces a warning "QFont::setPixelSize: Pixel size <= 0 (0)".
+        // However, if it is not in place or if the font size is set higher, even to 0.1px, WebKit reserves space for the
+        // quotation characters and therefore a weird white area appears. Even width: 0px doesn't help, so it looks like
+        // we will have to live with this warning for the time being.
+        ".quotemarks{color:transparent;font-size:0px;}"
+
+        // Cannot really use the :dir(rtl) selector for putting the quote indicator to the "correct" side.
+        // It's CSS4 and it isn't supported yet.
+        "blockquote{font-size:90%; margin: 4pt 0 4pt 0; padding: 0 0 0 1em; border-left: 2px solid %1; unicode-bidi: -webkit-plaintext}"
+
+        // Stop the font size from getting smaller after reaching two levels of quotes
+        // (ie. starting on the third level, don't make the size any smaller than what it already is)
+        "blockquote blockquote blockquote {font-size: 100%}"
+        ".signature{opacity: 0.6;}"
+
+        // Dynamic quote collapsing via pure CSS, yay
+        "input {display: none}"
+        "input ~ span.full {display: block}"
+        "input ~ span.short {display: none}"
+        "input:checked ~ span.full {display: none}"
+        "input:checked ~ span.short {display: block}"
+        "label {border: 1px solid %2; border-radius: 5px; padding: 0px 4px 0px 4px; white-space: nowrap}"
+        // BLACK UP-POINTING SMALL TRIANGLE (U+25B4)
+        // BLACK DOWN-POINTING SMALL TRIANGLE (U+25BE)
+        "span.full > blockquote > label:before {content: \"\u25b4\"}"
+        "span.short > blockquote > label:after {content: \" \u25be\"}"
+        "span.shortquote > blockquote > label {display: none}"
+    );
+
+    QFontInfo monospaceInfo(systemMonospaceFont());
+    QString fontSpecification(QLatin1String("pre{"));
+    if (monospaceInfo.italic())
+        fontSpecification += QLatin1String("font-style: italic; ");
+    if (monospaceInfo.bold())
+        fontSpecification += QLatin1String("font-weight: bold; ");
+    fontSpecification += QString::fromUtf8("font-size: %1px; font-family: \"%2\", monospace }").arg(
+                QString::number(monospaceInfo.pixelSize()), monospaceInfo.family());
+
+    QPalette palette = QApplication::palette();
+    QString textColors = QString::fromUtf8("body { background-color: %1; color: %2 }"
+                                           "a:link { color: %3 } a:visited { color: %4 } a:hover { color: %3 }").arg(
+                palette.base().color().name(), palette.text().color().name(),
+                palette.link().color().name(), palette.linkVisited().color().name());
+    // looks like there's no special color for hovered links in Qt
+
+    // build stylesheet and html header
+    QColor tintForQuoteIndicator = palette.base().color();
+    tintForQuoteIndicator.setAlpha(0x66);
+    static QString stylesheet = defaultStyle.arg(palette.link().color().name(),
+                                                 tintColor(palette.text().color(), tintForQuoteIndicator).name());
+    static QFile file(Common::writablePath(Common::LOCATION_DATA) + QLatin1String("message.css"));
+    static QDateTime lastVersion;
+    QDateTime lastTouched(file.exists() ? QFileInfo(file).lastModified() : QDateTime());
+    if (lastVersion < lastTouched) {
+        stylesheet = defaultStyle;
+        if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            const QString userSheet = QString::fromLocal8Bit(file.readAll().data());
+            lastVersion = lastTouched;
+            stylesheet += QLatin1Char('\n') + userSheet;
+            file.close();
+        }
+    }
+
+    // The dir="auto" is required for WebKit to treat all paragraphs as entities with possibly different text direction.
+    // The individual paragraphs unfortunately share the same text alignment, though, as per
+    // https://bugs.webkit.org/show_bug.cgi?id=71194 (fixed in Blink already).
+    QString htmlHeader(QLatin1String("<html><head><style type=\"text/css\"><!--") + textColors + fontSpecification + stylesheet +
+                       QLatin1String("--></style></head><body><pre dir=\"auto\">"));
+    static QString htmlFooter(QLatin1String("\n</pre></body></html>"));
+
+    // We cannot rely on the QWebFrame's toPlainText because of https://bugs.kde.org/show_bug.cgi?id=321160
+    QString markup = Composer::Util::plainTextToHtml(
+                plaintext,
+                flowedFormat);
+    return htmlHeader + markup + htmlFooter;
+}
+
+/** @short Return the source color tinted with the tintColor
+
+This is shamelessly stolen from Qt5's qtquick1 module.
+*/
+QColor Formatting::tintColor(const QColor &color, const QColor &tintColor)
+{
+    QColor finalColor;
+    int a = tintColor.alpha();
+    if (a == 0xff) {
+        finalColor = tintColor;
+    } else if (a == 0x00) {
+        finalColor = color;
+    } else {
+        qreal a = tintColor.alphaF();
+        qreal inv_a = 1.0 - a;
+
+        finalColor.setRgbF(tintColor.redF() * a + color.redF() * inv_a,
+                           tintColor.greenF() * a + color.greenF() * inv_a,
+                           tintColor.blueF() * a + color.blueF() * inv_a,
+                           a + inv_a * color.alphaF());
+    }
+    return finalColor;
+}
+
+/** @short Return the monospace font according to the systemwide settings */
+QFont Formatting::systemMonospaceFont()
+{
+    static bool initialized = false;
+    static QFont font;
+
+    if (!initialized) {
+        if (isRunningKde4()) {
+            // This part was shamelessly inspired by Qt4's src/gui/kernel/qapplication_x11.cpp
+            QSettings kdeSettings(kdeHome() + QLatin1String("/share/config/kdeglobals"), QSettings::IniFormat);
+            QLatin1String confKey("fixed");
+            QString fontDescription = kdeSettings.value(confKey).toStringList().join(QLatin1String(","));
+            if (fontDescription.isEmpty())
+                fontDescription = kdeSettings.value(confKey).toString();
+            initialized = !fontDescription.isEmpty() && font.fromString(fontDescription);
+        } else if (isRunningGnome() || isRunningXfce()) {
+            // Under Gnome and Xfce, we can read the preferred font in yet another format via gconftool-2
+            QByteArray fontDescription;
+            do {
+                QProcess gconf;
+                gconf.start(QLatin1String("gconftool-2"),
+                            QStringList() << QLatin1String("--get") << QLatin1String("/desktop/gnome/interface/monospace_font_name"));
+                if (!gconf.waitForStarted())
+                    break;
+                gconf.closeWriteChannel();
+                if (!gconf.waitForFinished())
+                    break;
+                fontDescription = gconf.readAllStandardOutput();
+                fontDescription = fontDescription.trimmed();
+            } while (0);
+
+            // This value is apparently supposed to be parsed via the pango_font_description_from_string function. We, of course,
+            // do not link with Pango, so we attempt to do a very crude parsing experiment by hand.
+            // This code does *not* handle many fancy options like specifying the font size in pixels, parsing the bold/italics
+            // options etc. It will also very likely break when the user has specified preefrences for more than one font family.
+            // However, I hope it's better to try to do something than ignoring the problem altogether.
+            int lastSpace = fontDescription.lastIndexOf(' ');
+            bool ok;
+            double size = fontDescription.mid(lastSpace).toDouble(&ok);
+            if (lastSpace > 0 && ok) {
+                font = QFont(QString::fromUtf8(fontDescription.left(lastSpace)), size);
+                initialized = true;
+            }
+        }
+    }
+
+    if (!initialized) {
+        // Ok, that failed, let's create some fallback font.
+        // The problem is that these names wary acros platforms,
+        // but the following works well -- at first, we come up with a made-up name, and then
+        // let the Qt font substitution algorithm do its magic.
+        font = QFont(QLatin1String("x-trojita-terminus-like-fixed-width"));
+        // Using QFont::Monospace results in a proportional font on jkt's system
+        font.setStyleHint(QFont::TypeWriter);
+
+        // Gnome, Mac and perhaps everyone else uses 10pt as the default font size, so let's use that as well
+        int defaultPointSize = 10;
+        if (isRunningKde4()) {
+            // kdeui/kernel/kglobalsettings.cpp from KDELIBS sets default fixed font size to 9 on X11. Let's hope nobody runs
+            // this desktop-GUI-specific code *with KDE* under Harmattan or Mac. Seriously.
+            defaultPointSize = 9;
+
+        }
+        font.setPointSize(defaultPointSize);
+    }
+
+    return font;
+}
 
 }

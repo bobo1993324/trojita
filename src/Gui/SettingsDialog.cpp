@@ -54,6 +54,7 @@
 #include "Plugins/PasswordPlugin.h"
 #include "Plugins/PluginManager.h"
 #include "UiUtils/PasswordWatcher.h"
+#include "UiUtils/Formatting.h"
 
 namespace Gui
 {
@@ -403,7 +404,7 @@ EditIdentity::EditIdentity(QWidget *parent, Composer::SenderIdentitiesModel *ide
     connect(this, SIGNAL(accepted()), m_mapper, SLOT(submit()));
     connect(this, SIGNAL(rejected()), this, SLOT(onReject()));
     setModal(true);
-    signaturePlainTextEdit->setFont(Gui::Util::systemMonospaceFont());
+    signaturePlainTextEdit->setFont(UiUtils::Formatting::systemMonospaceFont());
 }
 
 void EditIdentity::enableButton()

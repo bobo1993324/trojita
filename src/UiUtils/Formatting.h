@@ -25,6 +25,7 @@
 #include <QDateTime>
 #include <QModelIndex>
 #include <QObject>
+#include "Composer/PlainTextFormatter.h"
 
 class QSettings;
 class QSslCertificate;
@@ -69,6 +70,10 @@ public:
 #if QT_VERSION >= QT_VERSION_CHECK(5, 0, 0)
     static QObject *factory(QQmlEngine *engine, QJSEngine *scriptEngine);
 #endif
+
+    static QString markupPlainText(QString plaintext, Composer::Util::FlowedFormat flowedFormat);
+    static QColor tintColor(const QColor &color, const QColor &tintColor);
+    static QFont systemMonospaceFont();
 
 private:
     Formatting(QObject *parent);
