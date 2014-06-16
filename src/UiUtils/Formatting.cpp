@@ -25,6 +25,11 @@
 #include <QSslKey>
 #include <QStringList>
 #include <QTextDocument>
+#include <QFontInfo>
+#include <QFileInfo>
+#include <QFile>
+#include "Common/Paths.h"
+#include "UiUtils/Color.h"
 
 namespace UiUtils {
 
@@ -205,5 +210,83 @@ QObject *Formatting::factory(QQmlEngine *engine, QJSEngine *scriptEngine)
     return f;
 }
 #endif
+
+QString Formatting::markupPlainText(QString plainText, Composer::Util::FlowedFormat flowedFormat, QFont font, QPalette palette)
+{
+    static const QString defaultStyle = QString::fromUtf8(
+        "pre{word-wrap: break-word; white-space: pre-wrap;}"
+        // The following line, sadly, produces a warning "QFont::setPixelSize: Pixel size <= 0 (0)".
+        // However, if it is not in place or if the font size is set higher, even to 0.1px, WebKit reserves space for the
+        // quotation characters and therefore a weird white area appears. Even width: 0px doesn't help, so it looks like
+        // we will have to live with this warning for the time being.
+        ".quotemarks{color:transparent;font-size:0px;}"
+
+        // Cannot really use the :dir(rtl) selector for putting the quote indicator to the "correct" side.
+        // It's CSS4 and it isn't supported yet.
+        "blockquote{font-size:90%; margin: 4pt 0 4pt 0; padding: 0 0 0 1em; border-left: 2px solid %1; unicode-bidi: -webkit-plaintext}"
+
+        // Stop the font size from getting smaller after reaching two levels of quotes
+        // (ie. starting on the third level, don't make the size any smaller than what it already is)
+        "blockquote blockquote blockquote {font-size: 100%}"
+        ".signature{opacity: 0.6;}"
+
+        // Dynamic quote collapsing via pure CSS, yay
+        "input {display: none}"
+        "input ~ span.full {display: block}"
+        "input ~ span.short {display: none}"
+        "input:checked ~ span.full {display: none}"
+        "input:checked ~ span.short {display: block}"
+        "label {border: 1px solid %2; border-radius: 5px; padding: 0px 4px 0px 4px; white-space: nowrap}"
+        // BLACK UP-POINTING SMALL TRIANGLE (U+25B4)
+        // BLACK DOWN-POINTING SMALL TRIANGLE (U+25BE)
+        "span.full > blockquote > label:before {content: \"\u25b4\"}"
+        "span.short > blockquote > label:after {content: \" \u25be\"}"
+        "span.shortquote > blockquote > label {display: none}"
+    );
+
+    QFontInfo monospaceInfo(font);
+    QString fontSpecification(QLatin1String("pre{"));
+    if (monospaceInfo.italic())
+        fontSpecification += QLatin1String("font-style: italic; ");
+    if (monospaceInfo.bold())
+        fontSpecification += QLatin1String("font-weight: bold; ");
+    fontSpecification += QString::fromUtf8("font-size: %1px; font-family: \"%2\", monospace }").arg(
+                QString::number(monospaceInfo.pixelSize()), monospaceInfo.family());
+
+    QString textColors = QString::fromUtf8("body { background-color: %1; color: %2 }"
+                                           "a:link { color: %3 } a:visited { color: %4 } a:hover { color: %3 }").arg(
+                palette.base().color().name(), palette.text().color().name(),
+                palette.link().color().name(), palette.linkVisited().color().name());
+    // looks like there's no special color for hovered links in Qt
+
+    // build stylesheet and html header
+    QColor tintForQuoteIndicator = palette.base().color();
+    tintForQuoteIndicator.setAlpha(0x66);
+    static QString stylesheet = defaultStyle.arg(palette.link().color().name(),
+                                                 UiUtils::tintColor(palette.text().color(), tintForQuoteIndicator).name());
+    static QFile file(Common::writablePath(Common::LOCATION_DATA) + QLatin1String("message.css"));
+    static QDateTime lastVersion;
+    QDateTime lastTouched(file.exists() ? QFileInfo(file).lastModified() : QDateTime());
+    if (lastVersion < lastTouched) {
+        stylesheet = defaultStyle;
+        if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            const QString userSheet = QString::fromLocal8Bit(file.readAll().data());
+            lastVersion = lastTouched;
+            stylesheet += QLatin1Char('\n') + userSheet;
+            file.close();
+        }
+    }
+
+    // The dir="auto" is required for WebKit to treat all paragraphs as entities with possibly different text direction.
+    // The individual paragraphs unfortunately share the same text alignment, though, as per
+    // https://bugs.webkit.org/show_bug.cgi?id=71194 (fixed in Blink already).
+    QString htmlHeader(QLatin1String("<html><head><style type=\"text/css\"><!--") + textColors + fontSpecification + stylesheet +
+                       QLatin1String("--></style></head><body><pre dir=\"auto\">"));
+    static QString htmlFooter(QLatin1String("\n</pre></body></html>"));
+
+    // We cannot rely on the QWebFrame's toPlainText because of https://bugs.kde.org/show_bug.cgi?id=321160
+    QString markup = Composer::Util::plainTextToHtml(plainText, flowedFormat);
+    return htmlHeader + markup + htmlFooter;
+}
 
 }

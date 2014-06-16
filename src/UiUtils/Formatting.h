@@ -25,6 +25,8 @@
 #include <QDateTime>
 #include <QModelIndex>
 #include <QObject>
+#include <QPalette>
+#include "Composer/PlainTextFormatter.h"
 
 class QSettings;
 class QSslCertificate;
@@ -65,6 +67,8 @@ public:
                                const QList<QSslError> &sslErrors, QString *title, QString *message, IconType *icon);
 
     static QString htmlHexifyByteArray(const QByteArray &rawInput);
+
+    static QString markupPlainText(QString plainText, Composer::Util::FlowedFormat flowedFormat, QFont font, QPalette palette);
 
 #if QT_VERSION >= QT_VERSION_CHECK(5, 0, 0)
     static QObject *factory(QQmlEngine *engine, QJSEngine *scriptEngine);

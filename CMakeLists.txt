@@ -286,6 +286,7 @@ set(path_UiUtils ${CMAKE_CURRENT_SOURCE_DIR}/src/UiUtils)
 set(libUiUtils_SOURCES
     ${path_UiUtils}/Formatting.cpp
     ${path_UiUtils}/PasswordWatcher.cpp
+    ${path_UiUtils}/Color.cpp
 )
 
 set(path_Composer ${CMAKE_CURRENT_SOURCE_DIR}/src/Composer)
@@ -625,7 +626,7 @@ endif()
 
 add_library(UiUtils STATIC ${libUiUtils_SOURCES})
 set_property(TARGET UiUtils APPEND PROPERTY COMPILE_DEFINITIONS QT_NO_CAST_FROM_ASCII QT_NO_CAST_TO_ASCII)
-target_link_libraries(UiUtils Plugins ${QT_QTCORE_LIBRARY})
+target_link_libraries(UiUtils Plugins Composer ${QT_QTCORE_LIBRARY})
 
 add_library(Streams STATIC ${libStreams_SOURCES})
 set_property(TARGET Streams APPEND PROPERTY COMPILE_DEFINITIONS QT_NO_CAST_FROM_ASCII QT_NO_CAST_TO_ASCII)

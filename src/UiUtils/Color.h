@@ -1,5 +1,4 @@
-/* Copyright (C) 2006 - 2011 Thomas Gahr <thomas.gahr@physik.uni-muenchen.de>
-   Copyright (C) 2006 - 2014 Jan Kundrát <jkt@flaska.net>
+/* Copyright (C) 2014 Boren Zhang <bobo1993324@gmail.com>
 
    This file is part of the Trojita Qt IMAP e-mail client,
    http://trojita.flaska.net/
@@ -20,39 +19,15 @@
    You should have received a copy of the GNU General Public License
    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
+#ifndef TROJITA_UIUTILS_COLOR_H
+#define TROJITA_UIUTILS_COLOR_H
 
+#include <QColor>
 
-#ifndef GUI_UTIL_H
-#define GUI_UTIL_H
+namespace UiUtils {
 
-#include <QMessageBox>
-#include <QString>
+QColor tintColor(const QColor &color, const QColor &tintColor);
 
-class QColor;
-class QFont;
-class QSettings;
-class QWidget;
+}
 
-namespace Gui
-{
-
-namespace Util
-{
-
-/** @short Center widget on screen containing its parent widget of the mousepointer */
-void centerWidgetOnScreen(QWidget *widget, bool centerOnCursorScreen=true);
-
-QString pkgDataDir();
-
-QFont systemMonospaceFont();
-
-int askForSomethingUnlessTold(const QString &title, const QString &message, const QString &settingsName,
-                              QMessageBox::StandardButtons buttons, QWidget *parent, QSettings *settings);
-
-QString resizedImageAsDataUrl(const QString &fileName, const int extent);
-
-} // namespace Util
-
-} // namespace Gui
-
-#endif // GUI_UTIL_H
+#endif
