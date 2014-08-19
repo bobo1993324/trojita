@@ -25,6 +25,7 @@
 #include <QFrame>
 #include <QModelIndex>
 #include "Gui/AbstractPartWidget.h"
+#include "Gui/MessageView.h"
 
 class QLabel;
 class QMenu;
@@ -43,8 +44,6 @@ class MsgPartNetAccessManager;
 
 namespace Gui
 {
-
-class MessageView;
 
 /** @short Widget depicting an attachment
 

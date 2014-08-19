@@ -381,7 +381,7 @@ set(libDesktopGui_SOURCES
     ${path_DesktopGui}/OnePanelAtTimeWidget.cpp
     ${path_DesktopGui}/OverlayWidget.cpp
     ${path_DesktopGui}/PartWidget.cpp
-    ${path_DesktopGui}/PartWidgetFactory.cpp
+    ${path_DesktopGui}/PartWidgetFactoryVisitor.cpp
     ${path_DesktopGui}/PasswordDialog.cpp
     ${path_DesktopGui}/ProgressPopUp.cpp
     ${path_DesktopGui}/ProtocolLoggerWidget.cpp

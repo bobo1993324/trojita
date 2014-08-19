@@ -48,6 +48,10 @@ class NetworkWatcher;
 }
 }
 
+namespace UiUtils {
+template<typename T> class PartWalker;
+}
+
 namespace Gui {
 
 class EnvelopeView;
@@ -116,7 +120,7 @@ private:
     QPointer<Imap::Mailbox::NetworkWatcher> m_netWatcher;
     QTimer *markAsReadTimer;
     QWebView *emptyView;
-    PartWidgetFactory *factory;
+    UiUtils::PartWalker<QWidget> *factory;
     Spinner *m_loadingSpinner;
     QSettings *m_settings;
     QSet<QWebView*> m_loadingItems;
