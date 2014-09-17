@@ -560,7 +560,9 @@ set(trojitaHarmattan_SOURCES
 )
 
 set(trojitaUbuntu_SOURCES
-        ${CMAKE_CURRENT_SOURCE_DIR}/src/Ubuntu/main.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Ubuntu/main.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Ubuntu/backend/PartItemFactory.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/Ubuntu/backend/PartItemVisitor.cpp
 )
 
 if(LinguistForTrojita_FOUND OR Qt5LinguistForTrojita_FOUND)
